@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scoopberry — Small-batch Gelato</title>
+<meta name="description" content="Small-batch gelato, churned slow, scooped loud.">
+<script>
+  if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('motion');
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..900,0..100;1,9..144,400..900,0..100&family=Bricolage+Grotesque:opsz,wght@12..96,400..700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* theme — rewritten by the flavor switcher */
+    --bg: #f6c1cb;
+    --blob: #ee9fb0;
+    --ink: #5b1426;
+    --accent: #e2304a;
+    --scoop: none;
+
+    --cream: #fff6ee;
+    --f-display: "Fraunces", Georgia, serif;
+    --f-ui: "Bricolage Grotesque", system-ui, sans-serif;
+    --expo: cubic-bezier(.16, 1, .3, 1);
+    --quint: cubic-bezier(.22, 1, .36, 1);
+    --bounce: cubic-bezier(.34, 1.56, .64, 1);
+    --u: clamp(.6px, calc(100vw / 1440), 1.3px);
+    --gutter: max(16px, calc(44 * var(--u)));
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  body {
+    margin: 0; background: var(--cream); color: var(--ink);
+    font-family: var(--f-ui); font-size: 16px; line-height: 1.5;
+    overflow-x: clip; -webkit-font-smoothing: antialiased;
+  }
+  html.loading body { overflow: hidden; }
+  a { color: inherit; }
+  button { font: inherit; color: inherit; }
+  img { display: block; max-width: 100%; }
+  :focus-visible { outline: 2.5px solid var(--accent); outline-offset: 3px; border-radius: 8px; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .display { font-family: var(--f-display); font-variation-settings: "SOFT" 100, "opsz" 144; font-weight: 800; letter-spacing: -.04em; line-height: .86; }
+  .display em { font-style: italic; font-weight: 500; }
+  .eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; }
+  .theme-t { transition: background-color .9s var(--quint), color .9s var(--quint), border-color .9s var(--quint); }
+
+  /* split text */
+  .w { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .08em; margin-bottom: -.08em; }
+  .c { display: inline-block; will-change: transform; }
+
+  /* ───────── preloader ───────── */
+  .loader {
+    position: fixed; inset: 0; z-index: 100; background: var(--ink); color: var(--cream);
+    display: grid; grid-template-rows: 1fr auto; padding: var(--gutter);
+    border-radius: 0 0 0 0;
+  }
+  .loader .mark { align-self: center; justify-self: center; text-align: center; }
+  .loader .mark .display { font-size: clamp(56px, calc(150 * var(--u)), 190px); color: var(--cream); }
+  .loader .mark .display em { color: var(--accent); }
+  .loader .mark p { margin: 18px 0 0; opacity: .6; }
+  .loader .row { display: flex; justify-content: space-between; align-items: end; gap: 20px; }
+  .loader .count { font: 800 clamp(64px, calc(180 * var(--u)), 220px)/.8 var(--f-display); font-variation-settings: "SOFT" 100; letter-spacing: -.05em; font-variant-numeric: tabular-nums; }
+  .loader .bar { flex: 1; height: 2px; background: rgba(255,246,238,.15); margin-bottom: 14px; position: relative; overflow: hidden; border-radius: 2px; }
+  .loader .bar i { position: absolute; inset: 0; background: var(--cream); transform-origin: left; transform: scaleX(0); }
+  html:not(.motion) .loader { display: none; }
+
+  /* ───────── cursor ───────── */
+  .cursor { position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; display: none; }
+  .cursor .dot {
+    position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+    background: var(--ink); display: grid; place-items: center;
+    transition: width .45s var(--expo), height .45s var(--expo), margin .45s var(--expo), background .3s;
+  }
+  .cursor .dot span { font: 700 11px/1 var(--f-ui); letter-spacing: .14em; color: var(--cream); opacity: 0; transition: opacity .25s; }
+  .cursor.link .dot { width: 46px; height: 46px; margin: -23px 0 0 -23px; background: rgba(255,255,255,.35); border: 1.5px solid var(--ink); backdrop-filter: blur(3px); }
+  .cursor.label .dot { width: 96px; height: 96px; margin: -48px 0 0 -48px; background: var(--ink); }
+  .cursor.label .dot span { opacity: 1; }
+  @media (pointer: fine) { html.motion .cursor { display: block; } html.motion body, html.motion a, html.motion button { cursor: none; } }
+
+  /* ───────── nav ───────── */
+  .nav { position: fixed; inset: 0 0 auto; z-index: 60; display: flex; align-items: center; justify-content: space-between; padding: 18px var(--gutter); pointer-events: none; }
+  .nav > * { pointer-events: auto; }
+  .logo { font: italic 800 26px/1 var(--f-display); font-variation-settings: "SOFT" 100; letter-spacing: -.035em; text-decoration: none; display: flex; align-items: center; gap: 8px; }
+  .logo i { width: 12px; height: 12px; border-radius: 50%; background: var(--accent); transition: background .9s; }
+  .links { display: flex; gap: 4px; padding: 5px; border-radius: 99px; background: rgba(255,255,255,.4); backdrop-filter: blur(10px) saturate(1.3); -webkit-backdrop-filter: blur(10px) saturate(1.3); box-shadow: inset 0 0 0 1px rgba(255,255,255,.5); list-style: none; margin: 0; }
+  .links a { display: block; padding: 8px 16px; border-radius: 99px; text-decoration: none; font-weight: 500; font-size: 15px; transition: background .25s; }
+  .links a:hover { background: rgba(255,255,255,.7); }
+  .btn {
+    position: relative; display: inline-flex; align-items: center; gap: 12px; padding: 15px 26px; border-radius: 99px; border: 0;
+    background: var(--ink); color: var(--cream); font: 600 15px/1 var(--f-ui); text-decoration: none; cursor: pointer;
+    overflow: hidden; isolation: isolate; transition: background-color .9s var(--quint);
+  }
+  .btn::before { content: ""; position: absolute; inset: 0; background: var(--accent); border-radius: inherit; z-index: -1; transform: translateY(101%); transition: transform .55s var(--expo); }
+  .btn:hover::before { transform: none; }
+  .btn .ar { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--cream); color: var(--ink); font-size: 12px; transition: transform .5s var(--expo); }
+  .btn:hover .ar { transform: rotate(-45deg); }
+  .btn.ghost { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); }
+  .btn.ghost::before { background: var(--ink); }
+  .btn.ghost:hover { color: var(--cream); }
+  .burger { display: none; width: 46px; height: 46px; border-radius: 50%; border: 0; background: rgba(255,255,255,.55); cursor: pointer; position: relative; }
+  .burger span, .burger span::before { position: absolute; left: 14px; width: 18px; height: 2px; background: var(--ink); border-radius: 2px; transition: transform .4s var(--expo); }
+  .burger span { top: 19px; }
+  .burger span::before { content: ""; left: 0; top: 7px; }
+  .nav.open .burger span { transform: translateY(3.5px) rotate(45deg); }
+  .nav.open .burger span::before { transform: translateY(-7px) rotate(-90deg); }
+
+  /* ───────── hero ───────── */
+  .hero { position: relative; height: 106vh; height: 106svh; min-height: 640px; background: var(--bg); overflow: hidden; isolation: isolate; }
+  .wipe { position: absolute; inset: 0; z-index: 0; pointer-events: none; clip-path: circle(0 at 50% 50%); }
+  .blob {
+    position: absolute; left: 50%; top: 54%; width: min(62vw, 78vh); aspect-ratio: 1; translate: -50% -50%; z-index: 1;
+    background: var(--blob); border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
+    animation: morph 14s ease-in-out infinite alternate; transition: background-color .9s var(--quint);
+  }
+  @keyframes morph {
+    33% { border-radius: 63% 37% 41% 59% / 55% 39% 61% 45%; rotate: 40deg; }
+    66% { border-radius: 38% 62% 58% 42% / 62% 58% 42% 38%; rotate: -25deg; }
+    100% { border-radius: 55% 45% 35% 65% / 40% 60% 40% 60%; rotate: 15deg; }
+  }
+  .giant {
+    position: absolute; left: 0; right: 0; top: 50%; z-index: 2; margin: 0; text-align: center; white-space: nowrap;
+    color: #fff; font-size: 20vw; line-height: .8; transform: translateY(-75%); pointer-events: none;
+    text-shadow: 0 30px 80px rgba(0,0,0,.06);
+  }
+  .giant .word { display: inline-block; }
+  .cone {
+    position: absolute; left: 50%; top: 17vh; z-index: 3; height: 88vh; aspect-ratio: 600 / 810; translate: -50% 0;
+  }
+  .cone canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .cone::after { /* contact shadow so the cone sits in the scene */
+    content: ""; position: absolute; left: 22%; right: 22%; top: 30%; height: 40%; z-index: -1; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(0,0,0,.18), transparent); filter: blur(30px);
+  }
+  .bit { position: absolute; z-index: 4; pointer-events: none; will-change: transform; transition: opacity .7s; }
+  .bit { aspect-ratio: 1; }
+  .bit .fl { position: absolute; inset: 0; display: block; }
+  .bit .pc { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transform: scale(0); opacity: 0; }
+  .bit .pc.on { transform: none; opacity: 1; }
+  .bit.far { z-index: 1; filter: blur(5px); opacity: .85; }
+  .bit.mid { z-index: 2; filter: blur(1.5px); }
+
+  .kicker { position: absolute; z-index: 5; left: calc(50% + 15vh); top: 47%; font: italic 500 calc(46 * var(--u))/1 var(--f-display); font-variation-settings: "SOFT" 100; color: var(--ink); white-space: nowrap; rotate: -6deg; transition: color .9s; }
+  .kicker::before { content: ""; display: block; width: 60px; height: 1.5px; background: currentColor; margin-bottom: 12px; opacity: .6; }
+
+  .hero-copy { position: absolute; z-index: 6; left: var(--gutter); bottom: calc(6vh + 70 * var(--u) + 12px); width: min(340px, 30vw); }
+  .hero-copy .eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .hero-copy .eyebrow b { padding: 4px 9px; border-radius: 99px; background: var(--ink); color: var(--bg); transition: background-color .9s, color .9s; }
+  .hero-copy p { margin: 0 0 22px; font-size: 16px; line-height: 1.5; opacity: .8; }
+  .hero-copy .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .hero-top { position: absolute; z-index: 6; left: var(--gutter); top: calc(88px + 2vh); font-size: 13px; font-weight: 500; opacity: .75; display: flex; gap: 22px; }
+  .hero-top span::before { content: "●"; font-size: 8px; vertical-align: 2px; margin-right: 7px; color: var(--accent); }
+
+  .picker { position: absolute; z-index: 6; right: var(--gutter); bottom: calc(6vh + 70 * var(--u) + 12px); display: grid; gap: 14px; justify-items: end; }
+  .picker .meta { display: flex; align-items: center; gap: 14px; }
+  .picker .idx { font: 800 calc(44 * var(--u))/1 var(--f-display); font-variation-settings: "SOFT" 100; letter-spacing: -.03em; min-width: 3ch; text-align: right; font-variant-numeric: tabular-nums; }
+  .picker .idx small { font: 600 13px var(--f-ui); opacity: .5; letter-spacing: 0; }
+  .arrow { width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid var(--ink); background: transparent; cursor: pointer; display: grid; place-items: center; transition: background .3s, color .3s, transform .4s var(--bounce), border-color .9s; }
+  .arrow:hover { background: var(--ink); color: var(--bg); transform: scale(1.08); }
+  .thumbs { display: flex; gap: 10px; list-style: none; margin: 0; padding: 0; }
+  .thumb {
+    position: relative; width: calc(70 * var(--u) + 14px); aspect-ratio: 1; border-radius: 50%; border: 0; padding: 0; cursor: pointer;
+    background: var(--tb); box-shadow: 0 10px 24px -12px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.6);
+    transition: transform .5s var(--bounce), box-shadow .3s;
+  }
+  .thumb:hover { transform: translateY(-6px) rotate(-6deg); }
+  .thumb[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--ink), 0 14px 26px -12px rgba(0,0,0,.45); }
+  .thumb .tc { position: absolute; left: 50%; top: 6%; height: 125%; aspect-ratio: 600/810; translate: -50% 0; border-radius: 0 0 50% 50%; overflow: hidden; clip-path: inset(0 0 21% 0 round 0 0 999px 999px); }
+  .thumb .tc img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .thumb .lbl { position: absolute; left: 50%; bottom: -26px; translate: -50% 0; font-size: 12px; font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity .3s; }
+  .thumb:hover .lbl, .thumb[aria-pressed="true"] .lbl { opacity: 1; }
+  .scroll-cue { position: absolute; z-index: 6; left: 50%; bottom: 18px; translate: -50% 0; font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; display: none; }
+
+  /* ───────── marquee ───────── */
+  .marquees { position: relative; z-index: 5; height: calc(150 * var(--u) + 40px); margin: calc(-30 * var(--u) - 10px) 0 calc(-60 * var(--u) - 20px); pointer-events: none; }
+  .mq { position: absolute; left: -5vw; right: -5vw; top: 50%; overflow: hidden; padding: 16px 0; white-space: nowrap; }
+  .mq.a { background: var(--ink); color: var(--cream); rotate: -3deg; translate: 0 -60%; transition: background-color .9s; }
+  .mq.b { background: var(--accent); color: #fff; rotate: 2.4deg; translate: 0 -30%; transition: background-color .9s; }
+  .mq .track { display: inline-flex; will-change: transform; }
+  .mq span { font: 800 calc(46 * var(--u) + 8px)/1 var(--f-display); font-variation-settings: "SOFT" 100; letter-spacing: -.02em; padding: 0 22px; display: inline-flex; align-items: center; gap: 44px; }
+  .mq span::after { content: ""; width: .5em; height: .5em; background: currentColor; clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); }
+  .mq.b span { font-style: italic; font-weight: 500; }
+
+  /* ───────── scrub stories ───────── */
+  .story { position: relative; height: 100vh; height: 100svh; overflow: hidden; background: #f2cfce; color: #5b1426; }
+  .story canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .story .frame { position: absolute; inset: 0; overflow: hidden; will-change: clip-path; }
+  .beat { position: absolute; margin: 0; pointer-events: none; }
+  .b-title { font-size: calc(120 * var(--u)); }
+  .b-title em { color: #e2304a; }
+  .b-left { left: var(--gutter); top: 50%; translate: 0 -50%; }
+  .b-right { right: var(--gutter); top: 50%; translate: 0 -50%; text-align: right; }
+  .stepper { position: absolute; left: var(--gutter); bottom: calc(40 * var(--u) + 16px); display: flex; align-items: center; gap: 16px; font-size: 13px; font-weight: 600; }
+  .stepper .line { width: 160px; height: 2px; background: rgba(91,20,38,.15); border-radius: 2px; overflow: hidden; }
+  .stepper .line i { display: block; height: 100%; background: #5b1426; transform-origin: left; transform: scaleX(0); }
+  .stepper .n { font: 800 26px/1 var(--f-display); font-variation-settings: "SOFT" 100; font-variant-numeric: tabular-nums; }
+  .s-label { position: absolute; right: var(--gutter); bottom: calc(40 * var(--u) + 16px); max-width: 260px; font-size: 15px; opacity: .75; text-align: right; }
+
+  .burst-title { left: 50%; top: calc(30 * var(--u) + 74px); translate: -50% 0; text-align: center; white-space: nowrap; font-size: calc(84 * var(--u)); text-shadow: 0 2px 30px rgba(255,230,230,.9); }
+  .hot { position: absolute; display: flex; align-items: center; gap: 12px; opacity: 0; }
+  .hot .pin { width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 6px rgba(255,255,255,.35); position: relative; flex: none; }
+  .hot .pin::after { content: ""; position: absolute; inset: -10px; border-radius: 50%; border: 1.5px solid #fff; animation: ping 2s var(--quint) infinite; }
+  @keyframes ping { from { transform: scale(.4); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+  .hot .card {
+    position: relative; padding: 12px 18px; border-radius: 18px; background: rgba(255,255,255,.3);
+    backdrop-filter: blur(12px) saturate(1.4); -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,.7), 0 18px 40px -18px rgba(91,20,38,.5);
+  }
+  .hot .card b { display: block; font: 700 20px/1.1 var(--f-display); font-variation-settings: "SOFT" 100; }
+  .hot .card span { font-size: 13px; opacity: .75; }
+  .hot.r { flex-direction: row-reverse; text-align: right; }
+
+  /* ───────── flavors ───────── */
+  .section { position: relative; padding: calc(150 * var(--u) + 40px) var(--gutter); }
+  #flavors { background: var(--cream); }
+  .sec-head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 40px; margin-bottom: calc(70 * var(--u) + 20px); }
+  .sec-head h2 { margin: 16px 0 0; font-size: calc(132 * var(--u)); }
+  .sec-head h2 em { color: var(--accent); transition: color .9s; }
+  .sec-head p { max-width: 32ch; margin: 0; font-size: 17px; opacity: .7; }
+  .menu { list-style: none; margin: 0; padding: 0; border-top: 1.5px solid var(--ink); }
+  .menu li { border-bottom: 1.5px solid rgba(0,0,0,.1); }
+  .row {
+    position: relative; display: grid; grid-template-columns: 80px 1.4fr 1fr 110px; align-items: center; gap: 24px; width: 100%;
+    padding: calc(30 * var(--u) + 8px) 0; background: none; border: 0; text-align: left; cursor: pointer; overflow: hidden;
+  }
+  .row .num { font-size: 13px; font-weight: 700; letter-spacing: .12em; opacity: .5; }
+  .row .name { font: 800 calc(72 * var(--u))/1 var(--f-display); font-variation-settings: "SOFT" 100; letter-spacing: -.035em; transition: transform .6s var(--expo), color .4s; }
+  .row:hover .name { transform: translateX(26px); color: var(--rc); }
+  .row .notes { font-size: 15px; opacity: .65; }
+  .row .price { justify-self: end; display: flex; align-items: center; gap: 12px; font-weight: 600; font-size: 18px; }
+  .row .price i { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; font-style: normal; font-size: 14px; transition: transform .5s var(--expo), background .3s, color .3s; }
+  .row:hover .price i { transform: rotate(-45deg); background: var(--ink); color: var(--cream); }
+  .row .mthumb { display: none; }
+  .preview {
+    position: fixed; left: 0; top: 0; z-index: 40; width: 260px; aspect-ratio: 4/5; border-radius: 26px; overflow: hidden; pointer-events: none;
+    background: var(--pb, #f6c1cb); transform: scale(0); opacity: 0; transition: background-color .45s var(--quint);
+    box-shadow: 0 40px 80px -30px rgba(0,0,0,.45);
+  }
+  .preview .pc { position: absolute; left: 50%; top: 9%; height: 108%; aspect-ratio: 600/810; translate: -50% 0; }
+  .preview .pc img { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  /* ───────── visit ───────── */
+  #visit { background: var(--cream); padding-top: 0; padding-bottom: calc(24 * var(--u) + 16px); }
+  .visit { position: relative; display: grid; grid-template-columns: 1.15fr 1fr; gap: calc(60 * var(--u)); align-items: center; background: var(--bg); border-radius: 44px; padding: calc(90 * var(--u) + 16px); overflow: hidden; transition: background-color .9s var(--quint); }
+  .visit h2 { font-size: calc(150 * var(--u)); margin: 16px 0 calc(44 * var(--u) + 10px); }
+  .visit h2 em { color: var(--accent); transition: color .9s; }
+  .info { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-bottom: calc(44 * var(--u) + 12px); }
+  .info h3 { margin: 0 0 6px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; opacity: .6; }
+  .info p { margin: 0; font-size: 17px; }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; }
+  .visit .stage { position: relative; aspect-ratio: 1; }
+  .visit .vblob { position: absolute; inset: 6%; background: var(--blob); border-radius: 58% 42% 38% 62% / 48% 55% 45% 52%; animation: morph 12s ease-in-out infinite alternate; transition: background-color .9s; }
+  .visit .vc { position: absolute; left: 50%; top: 2%; height: 112%; aspect-ratio: 600/810; translate: -50% 0; }
+  .visit .vc img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .badge { position: absolute; right: 2%; top: 4%; width: calc(150 * var(--u) + 30px); aspect-ratio: 1; z-index: 2; }
+  .badge svg { width: 100%; height: 100%; animation: spin 16s linear infinite; }
+  .badge text { font: 700 11.5px var(--f-ui); letter-spacing: .32em; text-transform: uppercase; fill: var(--ink); }
+  .badge .core { position: absolute; inset: 30%; border-radius: 50%; background: var(--accent); display: grid; place-items: center; color: #fff; font: italic 700 20px/1 var(--f-display); transition: background-color .9s; }
+  @keyframes spin { to { rotate: 360deg; } }
+
+  footer { background: var(--cream); padding: 20px var(--gutter) 28px; overflow: hidden; }
+  .wordmark { margin: 0; font-size: 18.4vw; text-align: center; line-height: .82; letter-spacing: -.055em; white-space: nowrap; }
+  .wordmark .c { transition: color .3s; }   /* transform is GSAP-only: a CSS transition here breaks the reveal */
+  .wordmark .c:hover { color: var(--accent); }
+  .foot { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-top: 28px; padding-top: 20px; border-top: 1.5px solid rgba(0,0,0,.1); font-size: 14px; }
+  .foot nav { display: flex; gap: 22px; }
+  .foot a { text-decoration: none; opacity: .7; }
+  .foot a:hover { opacity: 1; color: var(--accent); }
+
+  /* ───────── responsive ───────── */
+  @media (max-width: 1100px) {
+    .kicker { display: none; }
+    .hero-copy { width: min(300px, 34vw); }
+  }
+  @media (max-width: 900px) {
+    .links, .nav > .btn { display: none; }
+    .burger { display: block; }
+    .nav.open .links {
+      display: flex; flex-direction: column; position: fixed; inset: 76px 16px auto; padding: 12px; border-radius: 24px;
+      background: rgba(255,246,238,.95); box-shadow: 0 30px 60px -30px rgba(0,0,0,.5);
+    }
+    .nav.open .links a { font: 800 26px/1.1 var(--f-display); font-variation-settings: "SOFT" 100; padding: 12px 16px; }
+    .hero-top { display: none; }
+    .cone { height: 60svh; top: 33svh; }
+    .giant { top: 25%; transform: translateY(-50%); }
+    .blob { top: 62%; width: 86vw; }
+    .bit { display: none; }
+    .bit.m-keep { display: block; }
+    .bit.berry.m-keep { top: 50% !important; left: 2% !important; }
+    .hero-copy { display: none; }
+    .picker { left: 0; right: 0; justify-items: center; bottom: 26px; }
+    .picker .meta { display: none; }
+    .thumb { width: 54px; }
+    .thumb .lbl { display: none; }
+    .bit { scale: .6; }
+    .sec-head { grid-template-columns: 1fr; }
+    .row { grid-template-columns: 56px 1fr auto; }
+    .row .notes { grid-column: 2 / 4; grid-row: 2; margin-top: -10px; }
+    .row .mthumb { display: block; position: relative; width: 56px; height: 56px; border-radius: 50%; background: var(--rb); overflow: hidden; grid-row: 1 / 3; }
+    .row .mthumb img { position: absolute; left: 50%; top: 8%; height: 120%; translate: -50% 0; max-width: none; }
+    .row .num { display: none; }
+    .visit { grid-template-columns: 1fr; }
+    .visit .stage { max-width: 420px; width: 100%; margin: 0 auto; }
+    .b-title { font-size: clamp(46px, 12vw, 90px); }
+    .b-left, .b-right { left: 16px; right: 16px; top: calc(80px + 3svh); translate: none; text-align: center; }
+    .s-label { display: none; }
+    .stepper { left: 50%; translate: -50% 0; bottom: 22px; }
+    .burst-title { font-size: clamp(38px, 10.5vw, 64px); white-space: normal; width: 92vw; top: 84px; }
+    .burst-title em { display: block; }
+    .hot .card b { font-size: 16px; }
+    .hot .card { padding: 9px 13px; }
+    .hot .card span { display: none; }
+    .hot, .hot.r { left: 16px !important; right: auto !important; flex-direction: row; text-align: left; }
+    .hot:nth-of-type(2) { top: 66% !important; } .hot:nth-of-type(3) { top: 73% !important; }
+    .hot:nth-of-type(4) { top: 80% !important; } .hot:nth-of-type(5) { top: 87% !important; }
+  }
+  @media (max-width: 560px) {
+    .sec-head h2 { font-size: 54px; }
+    .row { padding: 18px 0; gap: 14px; }
+    .row .name { font-size: 32px; }
+    .row .price { font-size: 16px; }
+    .row .price i { display: none; }
+    .visit { padding: 30px 20px; border-radius: 30px; }
+    .visit h2 { font-size: 60px; }
+    .info { grid-template-columns: 1fr; gap: 16px; }
+    .mq span { gap: 28px; padding: 0 14px; }
+  }
+  @media (max-height: 640px) and (min-width: 901px) {
+    .hero-copy p { display: none; }
+    .hero-top { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="loader" id="loader" aria-hidden="true">
+  <div class="mark">
+    <div class="display" data-split>Scoop<em>berry</em></div>
+    <p class="eyebrow">Small-batch gelato · Brooklyn</p>
+  </div>
+  <div class="row">
+    <span class="eyebrow">Churning your scoop</span>
+    <div class="bar"><i id="bar"></i></div>
+    <div class="count" id="count">000</div>
+  </div>
+</div>
+
+<div class="cursor" id="cursor" aria-hidden="true"><div class="dot"><span id="cursorTxt">Drag</span></div></div>
+
+<header class="nav" id="nav">
+  <a class="logo" href="#top" data-link aria-label="Scoopberry home"><i aria-hidden="true"></i>Scoopberry</a>
+  <ul class="links" id="links">
+    <li><a href="#build" data-link>The scoop</a></li>
+    <li><a href="#inside" data-link>Inside</a></li>
+    <li><a href="#flavors" data-link>Flavors</a></li>
+    <li><a href="#visit" data-link>Visit</a></li>
+  </ul>
+  <a class="btn magnetic" href="#visit" data-link>Order pickup <span class="ar" aria-hidden="true">↗</span></a>
+  <button class="burger" id="burger" aria-label="Open menu" aria-expanded="false" aria-controls="links"><span></span></button>
+</header>
+
+<main>
+  <!-- ───────── HERO ───────── -->
+  <section class="hero theme-t" id="top" aria-labelledby="giant">
+    <div class="wipe" id="wipe" aria-hidden="true"></div>
+    <div class="blob" aria-hidden="true"></div>
+
+    <h1 class="giant display" id="giant"><span class="sr-only">Scoopberry — </span><span class="word" id="giantWord">Strawberry</span></h1>
+
+    <div class="cone" id="cone" role="img" aria-label="A double scoop gelato cone, slowly turning.">
+      <canvas class="base" id="cvCone" width="600" height="810"></canvas>
+      <canvas class="scoop" id="cvScoop" width="600" height="810"></canvas>
+    </div>
+
+    <!-- floating fruit, cut from the burst footage -->
+    <div class="bit berry m-keep" data-d="1.0"  style="left:16%; top:22%; width:calc(150 * var(--u)); rotate:-18deg"><span class="fl"></span></div>
+    <div class="bit berry far" data-d="-.4"  style="left:72%; top:14%; width:calc(90 * var(--u)); rotate:40deg"><span class="fl"></span></div>
+    <div class="bit mid m-keep" data-d=".5"   style="left:76%; top:62%; width:calc(150 * var(--u)); rotate:16deg"><span class="fl"></span></div>
+    <div class="bit far"       data-d="-.3"  style="left:27%; top:66%; width:calc(110 * var(--u)); rotate:-30deg"><span class="fl"></span></div>
+    <div class="bit m-keep"    data-d="1.3"  style="left:62%; top:30%; width:calc(80 * var(--u)); rotate:12deg"><span class="fl"></span></div>
+    <div class="bit berry mid" data-d=".7"   style="left:33%; top:12%; width:calc(80 * var(--u)); rotate:120deg"><span class="fl"></span></div>
+
+    <p class="kicker" aria-hidden="true">made with love!</p>
+
+    <div class="hero-top" aria-hidden="true"><span>Churned this morning</span><span>Open till 10pm</span></div>
+
+    <div class="hero-copy">
+      <p class="eyebrow"><b id="flvNo">No. 01</b><span id="flvTag">The signature</span></p>
+      <p id="flvNote">Sun-ripe strawberries folded into slow-churned farm cream, piled high on a waffle cone baked at dawn.</p>
+      <div class="btns">
+        <a class="btn magnetic" href="#visit" data-link>Order now <span class="ar" aria-hidden="true">↗</span></a>
+        <a class="btn ghost magnetic" href="#flavors" data-link>All flavors</a>
+      </div>
+    </div>
+
+    <div class="picker">
+      <div class="meta">
+        <button class="arrow magnetic" id="prev" aria-label="Previous flavor">←</button>
+        <div class="idx" aria-live="polite"><span id="idx">01</span><small>/05</small></div>
+        <button class="arrow magnetic" id="next" aria-label="Next flavor">→</button>
+      </div>
+      <ul class="thumbs" id="thumbs" aria-label="Choose a flavor"></ul>
+    </div>
+  </section>
+
+  <div class="marquees" aria-hidden="true">
+    <div class="mq a"><div class="track" id="mqA"></div></div>
+    <div class="mq b"><div class="track" id="mqB"></div></div>
+  </div>
+
+  <!-- ───────── BUILD ───────── -->
+  <section class="story" id="build" aria-label="How a cone is built">
+    <div class="frame"><canvas id="cvBuild" aria-hidden="true"></canvas></div>
+    <h2 class="beat b-title display b-left" data-split data-beat="0">Start with<br><em>a cone.</em></h2>
+    <h2 class="beat b-title display b-right" data-split data-beat="1">Scoop<br><em>one.</em></h2>
+    <h2 class="beat b-title display b-left" data-split data-beat="2">Scoop two.<br><em>Obviously.</em></h2>
+    <div class="stepper" aria-hidden="true"><span class="n" id="stepN">01</span><span class="line"><i id="stepLine"></i></span><span>03</span></div>
+    <p class="s-label">Every cone is hand-scooped to order. Never pre-packed, never soft-serve.</p>
+  </section>
+
+  <!-- ───────── INSIDE ───────── -->
+  <section class="story" id="inside" aria-label="What is inside">
+    <div class="frame" id="burstFrame"><canvas id="cvBurst" aria-hidden="true"></canvas></div>
+    <h2 class="beat burst-title display" data-split>What's inside? <em>Just this.</em></h2>
+    <div class="hot" style="left:12%; top:36%"><span class="pin"></span><span class="card"><b>Sun-ripe strawberries</b><span>Picked in season, never syrup</span></span></div>
+    <div class="hot r" style="right:11%; top:30%"><span class="pin"></span><span class="card"><b>Fresh farm cream</b><span>Local, grass-fed, churned 18 hours</span></span></div>
+    <div class="hot" style="left:18%; top:70%"><span class="pin"></span><span class="card"><b>Waffle crunch</b><span>Baked every morning in the shop</span></span></div>
+    <div class="hot r" style="right:15%; top:68%"><span class="pin"></span><span class="card"><b>Nothing else</b><span>No colouring, no gums, no shortcuts</span></span></div>
+  </section>
+
+  <!-- ───────── FLAVORS ───────── -->
+  <section class="section" id="flavors" aria-labelledby="flv-h">
+    <div class="sec-head">
+      <div>
+        <span class="eyebrow">The scoop menu</span>
+        <h2 id="flv-h" class="display" data-split data-reveal>Five flavors.<br><em>Zero regrets.</em></h2>
+      </div>
+      <p data-reveal>Churned in small batches every morning. When a tub runs out, it's gone until tomorrow. Tap one to try it on the cone.</p>
+    </div>
+    <ul class="menu" id="menu"></ul>
+  </section>
+
+  <!-- ───────── VISIT ───────── -->
+  <section class="section" id="visit" aria-labelledby="visit-h">
+    <div class="visit">
+      <div>
+        <span class="eyebrow">Visit the shop</span>
+        <h2 id="visit-h" class="display" data-split data-reveal>Come say <em>hi.</em></h2>
+        <div class="info" data-reveal>
+          <div><h3>Where</h3><p>214 Rosewood Avenue<br>Brooklyn, NY 11211</p></div>
+          <div><h3>When</h3><p>Every day, 12 – 10pm<br>Fri & Sat until midnight</p></div>
+        </div>
+        <div class="btns" data-reveal>
+          <a class="btn magnetic" href="#visit">Order for pickup <span class="ar" aria-hidden="true">↗</span></a>
+          <a class="btn ghost magnetic" href="#visit">Get directions</a>
+        </div>
+      </div>
+      <div class="stage" aria-hidden="true">
+        <div class="vblob"></div>
+        <div class="vc"><img id="visitImg" src="assets/cone/c_080.webp?v=5" alt="" loading="lazy"></div>
+        <div class="badge">
+          <svg viewBox="0 0 200 200"><defs><path id="circ" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs>
+            <text><textPath href="#circ">Made fresh daily · Made fresh daily · </textPath></text></svg>
+          <div class="core">since<br>2026</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="wordmark display" data-split aria-hidden="true">Scoopberry</p>
+  <div class="foot">
+    <span>© 2026 Scoopberry Gelato Co.</span>
+    <nav aria-label="Footer"><a href="#flavors" data-link>Flavors</a><a href="#visit" data-link>Visit</a><a href="#top" data-link>Instagram</a><a href="#top" data-link>Back to top ↑</a></nav>
+  </div>
+</footer>
+
+<div class="preview" id="preview" aria-hidden="true"><div class="pc"><img id="previewImg" src="assets/cone/c_044.webp?v=5" alt=""></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+<script>
+(() => {
+  const root = document.documentElement;
+  const motion = root.classList.contains('motion');
+  const fine = matchMedia('(pointer: fine)').matches;
+  gsap.registerPlugin(ScrollTrigger);
+  ScrollTrigger.config({ ignoreMobileResize: true });   // the phone address bar must not re-measure the pins
+  const phone = matchMedia('(max-width: 900px), (pointer: coarse)').matches;
+
+  /* ═════════ data ═════════ */
+  const FLAVORS = [
+    { inside: [['Sun-ripe strawberries', 'Picked in season, never syrup'], ['Fresh farm cream', 'Local, grass-fed, churned 18 hours'], ['Waffle crunch', 'Baked every morning in the shop'], ['Nothing else', 'No colouring, no gums, no shortcuts']],
+      name: 'Strawberry', tag: 'The signature', bg: '#f6c1cb', blob: '#ee9fb0', ink: '#5b1426', accent: '#e2304a', dir: 'cone',
+      note: 'Sun-ripe strawberries folded into slow-churned farm cream, piled high on a waffle cone baked at dawn.', notes: 'Strawberry, farm cream, frozen fruit pieces', price: '5.50' },
+    { inside: [['Wild blueberries', 'Maine-picked, bursting with juice'], ['Berry candy pearls', 'A little crunch, a lot of fun'], ['Fresh farm cream', 'Local, grass-fed, churned 18 hours'], ['Nothing else', 'No colouring, no gums, no shortcuts']],
+      name: 'Blueberry', tag: 'Wild & tangy', bg: '#cfc2f5', blob: '#ae98ec', ink: '#2b1a5c', accent: '#5b3fd1', dir: 'flv/blueberry',
+      note: 'Wild Maine blueberries rippled through vanilla cream, sharp, jammy and impossibly purple.', notes: 'Wild blueberry, vanilla cream, lemon zest', price: '5.75' },
+    { inside: [['Bronte pistachios', 'Stone-ground, a pinch of sea salt'], ['Toasted pistachio bits', 'Roasted in-house for extra crunch'], ['Fresh farm cream', 'Local, grass-fed, churned 18 hours'], ['Nothing else', 'No colouring, no gums, no shortcuts']],
+      name: 'Pistachio', tag: 'Sicilian classic', bg: '#d6e6ae', blob: '#b8d27f', ink: '#24401b', accent: '#5f8f2e', dir: 'flv/pistachio',
+      note: 'Stone-ground Bronte pistachios and a pinch of sea salt. Nutty, green, grown-up.', notes: 'Bronte pistachio, a pinch of sea salt', price: '6.00' },
+    { inside: [['Alphonso mango', 'Ripe, sweet, cubed by hand'], ['Fresh mango juice', 'Pressed every morning'], ['Candy sprinkles', 'A pop of colour on top'], ['Nothing else', 'Dairy-free sorbet, no shortcuts']],
+      name: 'Mango', tag: 'Sunshine sorbet', bg: '#ffd88f', blob: '#ffc05a', ink: '#5e2b00', accent: '#f07a12', dir: 'flv/mango',
+      note: 'Alphonso mango churned dairy-free with a whisper of chili. Summer, in a cone.', notes: 'Alphonso mango sorbet, a tiny kick', price: '5.50' },
+    { inside: [['72% dark chocolate', 'Single-origin, chopped by hand'], ['Rainbow sprinkles', 'Because chocolate likes a party'], ['Mini marshmallows', 'Soft, sweet, a little toasted'], ['Nothing else', 'No gums, no shortcuts']],
+      name: 'Cocoa', tag: 'Dark & dense', bg: '#edd4bb', blob: '#d8ad86', ink: '#3a1c12', accent: '#9a4d26', dir: 'flv/cocoa',
+      note: '72% single-origin chocolate, cacao nibs, no shortcuts. The one you come back for.', notes: '72% dark chocolate, cacao nibs', price: '5.50' },
+  ];
+
+  /* ═════════ helpers ═════════ */
+  function split(el) {
+    // wrap every char in .c inside a masking .w per word, keep <em>/<br> structure
+    const walk = node => {
+      [...node.childNodes].forEach(n => {
+        if (n.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          n.textContent.split(/(\s+)/).forEach(part => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { frag.append(' '); return; }
+            const w = document.createElement('span'); w.className = 'w';
+            [...part].forEach(ch => { const c = document.createElement('span'); c.className = 'c'; c.textContent = ch; w.append(c); });
+            frag.append(w);
+          });
+          n.replaceWith(frag);
+        } else if (n.nodeType === 1 && n.tagName !== 'BR') walk(n);
+      });
+    };
+    if (!el.dataset.done) { el.setAttribute('aria-label', el.textContent.replace(/\s+/g, ' ').trim()); walk(el); el.dataset.done = 1; }
+    [...el.querySelectorAll('.w')].forEach(w => w.setAttribute('aria-hidden', 'true'));
+    return [...el.querySelectorAll('.c')];
+  }
+  const pad = n => String(n).padStart(2, '0');
+  const pingpong = (x, n) => { const p = 2 * (n - 1); x = ((x % p) + p) % p; return x < n ? x : p - x; };
+
+  /* ═════════ smooth scroll ═════════ */
+  let lenis = null;
+  if (motion && window.Lenis) {
+    lenis = new Lenis({ lerp: .085, wheelMultiplier: 1 });
+    lenis.on('scroll', ScrollTrigger.update);
+    gsap.ticker.add(t => lenis.raf(t * 1000));
+    gsap.ticker.lagSmoothing(0);
+    lenis.stop();
+  }
+  document.querySelectorAll('[data-link]').forEach(a => a.addEventListener('click', e => {
+    const id = a.getAttribute('href');
+    if (!id || id[0] !== '#') return;
+    const t = document.querySelector(id); if (!t) return;
+    e.preventDefault();
+    nav.classList.remove('open'); burger.setAttribute('aria-expanded', 'false');
+    lenis ? lenis.scrollTo(t, { duration: 1.6 }) : t.scrollIntoView();
+  }));
+  const nav = document.getElementById('nav'), burger = document.getElementById('burger');
+  burger.addEventListener('click', () => {
+    const o = nav.classList.toggle('open');
+    burger.setAttribute('aria-expanded', o); burger.setAttribute('aria-label', o ? 'Close menu' : 'Open menu');
+  });
+
+  /* ═════════ image loading ═════════ */
+  const loadImg = src => new Promise(res => { const i = new Image(); i.decoding = 'async'; i.onload = () => (i.decode ? i.decode().catch(() => {}) : Promise.resolve()).then(() => res(i)); i.onerror = () => res(null); i.src = src; });
+  const N_CONE = 120;
+  const SETS = FLAVORS.map(() => new Array(N_CONE));
+  let coneFrames = SETS[0];
+  const frameUrl = (dir, i) => `assets/${dir}/c_${String(i + 1).padStart(3, '0')}.webp?v=5`;
+  const setJobs = [];
+  function loadSet(k, onEach) {
+    // coarse-to-fine so a flavor can turn (choppily) almost at once, then fills in
+    if (setJobs[k]) return setJobs[k];
+    const order = []; for (let st = 16; st >= 1; st >>= 1) for (let i = 0; i < N_CONE; i += st) if (!order.includes(i)) order.push(i);
+    return setJobs[k] = (async () => {
+      for (let j = 0; j < order.length; j += 8) await Promise.all(order.slice(j, j + 8).map(i => loadImg(frameUrl(FLAVORS[k].dir, i)).then(im => { SETS[k][i] = im; if (SETS[k] === coneFrames) lastDrawn = -1; onEach && onEach(); })));
+    })();
+  }
+  const fn = (dir, p, i) => `assets/${dir}/${p}_${String(i + 1).padStart(3, "0")}.webp?v=5`;
+
+  /* ═════════ hero cone (two canvases: real cone + recolourable scoop) ═════════ */
+  const cvC = document.getElementById('cvCone'), cxC = cvC.getContext('2d');
+  const cvS = document.getElementById('cvScoop'), cxS = cvS.getContext('2d');
+  let lastDrawn = -1;
+  const loadedNear = i => { let k = i; while (k > 0 && !coneFrames[k]) k--; return k; };
+  function drawCone(x) {
+    // x is fractional: blend the two neighbouring real frames for a smooth turn
+    x = Math.max(0, Math.min(N_CONE - 1, x));
+    const i = Math.floor(x), f = Math.round((x - i) * 16) / 16;
+    const key = i + f;
+    if (key === lastDrawn) return;
+    const a = loadedNear(i), b = loadedNear(Math.min(N_CONE - 1, i + 1));
+    if (!coneFrames[a]) return;                                   // keep the previous picture until this flavor arrives
+    cxC.clearRect(0, 0, 600, 810);
+    cxC.globalAlpha = 1; cxC.drawImage(coneFrames[a], 0, 0, 600, 810);
+    if (f > 0 && b !== a && coneFrames[b]) { cxC.globalAlpha = f; cxC.drawImage(coneFrames[b], 0, 0, 600, 810); cxC.globalAlpha = 1; }
+    lastDrawn = a === i && (f === 0 || b === i + 1) ? key : -1;
+  }
+  // rotation: slow idle turn back and forth (no mouse control), spins on flavor change
+  const turn = { cur: 60, spin: 0 };
+  const hero = document.querySelector('.hero');
+  const coneEl = document.getElementById('cone');
+  gsap.ticker.add(() => {
+    if (motion) turn.cur += .2;
+    drawCone(pingpong(turn.cur + turn.spin, N_CONE));
+  });
+
+  /* floating pieces: one image per flavor in every slot, swapped with a pop */
+  const BITS = [
+    ['sb_6', 'blue_2', 'pist_1', 'mango_5', 'choc_1'],
+    ['sb_2', 'blue_1', 'pist_4', 'mango_2', 'choc_6'],
+    ['sb_3', 'blue_4', 'pist_3', 'mango_1', 'choc_4'],
+    ['waffle_2', 'blue_3', 'pist_5', 'mango_4', 'choc_2'],
+    ['sb_8', 'blue_1', 'pist_6', 'mango_3', 'choc_5'],
+    ['sb_4', 'blue_4', 'pist_2', 'mango_2', 'choc_3'],
+  ];
+  document.querySelectorAll('.bit .fl').forEach((fl, slot) => {
+    fl.innerHTML = BITS[slot].map((n, f) => `<img class="pc${f === 0 ? ' on' : ''}" data-f="${f}" src="assets/bits/${n}.webp" alt="">`).join('');
+  });
+  function swapBits(from, to) {
+    const out = document.querySelectorAll(`.bit .pc[data-f="${from}"]`), inn = document.querySelectorAll(`.bit .pc[data-f="${to}"]`);
+    out.forEach(el => el.classList.remove('on')); inn.forEach(el => el.classList.add('on'));
+    if (!motion) return;
+    gsap.fromTo(out, { scale: 1, opacity: 1, rotate: 0 }, { scale: 0, opacity: 0, rotate: () => gsap.utils.random(-120, 120), duration: .45, stagger: .04, ease: 'back.in(1.7)', overwrite: true });
+    gsap.fromTo(inn, { scale: 0, opacity: 0, rotate: () => gsap.utils.random(-90, 90) }, { scale: 1, opacity: 1, rotate: 0, duration: 1.2, stagger: .07, delay: .55, ease: 'elastic.out(1, .55)', overwrite: true });
+  }
+
+  /* parallax for floating bits */
+  const bits = [...document.querySelectorAll('.bit')].map(el => ({ el, d: +el.dataset.d }));
+  let mx = 0, my = 0;
+  if (fine && motion) addEventListener('pointermove', e => { mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; });
+  const bitTo = bits.map(b => ({ x: gsap.quickTo(b.el, 'x', { duration: 1.2, ease: 'power3' }), y: gsap.quickTo(b.el, 'y', { duration: 1.2, ease: 'power3' }) }));
+  if (motion) {
+    gsap.ticker.add(() => bits.forEach((b, i) => { bitTo[i].x(mx * 70 * b.d); bitTo[i].y(my * 50 * b.d); }));
+    bits.forEach((b, i) => gsap.to(b.el.querySelector('.fl'), { y: 14 + i * 3, rotate: (i % 2 ? 8 : -8), duration: 3 + i * .4, ease: 'sine.inOut', yoyo: true, repeat: -1 }));
+  }
+
+  /* ═════════ flavor switcher ═════════ */
+  const thumbsEl = document.getElementById('thumbs');
+  FLAVORS.forEach((f, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<button class="thumb" style="--tb:${f.bg}" aria-pressed="${i === 0}" aria-label="${f.name}">
+      <span class="tc"><img src="assets/${f.dir}/c_060.webp?v=5" alt=""></span><span class="lbl">${f.name}</span></button>`;
+    li.firstElementChild.addEventListener('click', e => setFlavor(i, e.currentTarget));
+    thumbsEl.append(li);
+  });
+  let current = 0, busy = false;
+  const giantWord = document.getElementById('giantWord'), wipe = document.getElementById('wipe');
+  function fitGiant() {
+    const max = innerWidth * (innerWidth < 900 ? .94 : .9);
+    giantWord.parentElement.style.fontSize = '100px';
+    const w = giantWord.getBoundingClientRect().width;
+    giantWord.parentElement.style.fontSize = Math.min(100 * max / w, innerHeight * .42) + 'px';
+  }
+  function applyTheme(f) {
+    const s = root.style;
+    s.setProperty('--bg', f.bg); s.setProperty('--blob', f.blob); s.setProperty('--ink', f.ink); s.setProperty('--accent', f.accent);
+  }
+  function setFlavor(i, fromEl) {
+    if (busy || i === current) return;
+    busy = true;
+    const f = FLAVORS[i];
+    thumbsEl.querySelectorAll('.thumb').forEach((b, k) => b.setAttribute('aria-pressed', k === i));
+    document.getElementById('idx').textContent = pad(i + 1);
+    swapBits(current, i);
+    seqBuild.setFlavor(i); seqBurst.setFlavor(i);
+    document.querySelectorAll('#inside .hot .card').forEach((c, k) => { c.querySelector('b').textContent = f.inside[k][0]; c.querySelector('span').textContent = f.inside[k][1]; });
+    loadSet(i);
+    document.getElementById('visitImg').src = `assets/${f.dir}/c_080.webp?v=5`;
+    // circle wipe from the clicked thumb (or the cone)
+    const hr = hero.getBoundingClientRect(), r = (fromEl || coneEl).getBoundingClientRect();
+    const cx = r.left + r.width / 2 - hr.left, cy = r.top + r.height / 2 - hr.top;
+    wipe.style.background = f.bg;
+    const tl = gsap.timeline({ onComplete: () => { busy = false; } });
+    if (motion) {
+      tl.fromTo(wipe, { clipPath: `circle(0px at ${cx}px ${cy}px)` }, { clipPath: `circle(${Math.hypot(hr.width, hr.height)}px at ${cx}px ${cy}px)`, duration: 1.1, ease: 'expo.inOut' }, 0)
+        .to(turn, { spin: turn.spin + (N_CONE - 1) * 2, duration: 1.4, ease: 'expo.inOut' }, 0)
+        .to(giantChars(), { yPercent: -110, rotate: -8, duration: .5, stagger: .025, ease: 'power3.in' }, 0)
+        .add(() => {
+          applyTheme(f); coneFrames = SETS[i]; lastDrawn = -1;
+          giantWord.textContent = f.name; fitGiant();
+          gsap.fromTo(giantChars(), { yPercent: 110, rotate: 8 }, { yPercent: 0, rotate: 0, duration: 1, stagger: .035, ease: 'expo.out' });
+        }, .55)
+        .set(wipe, { clipPath: 'circle(0px at 50% 50%)' })
+        .fromTo(['#flvNote', '#flvTag'], { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: .6, stagger: .06 }, .7);
+    } else { applyTheme(f); coneFrames = SETS[i]; lastDrawn = -1; giantWord.textContent = f.name; fitGiant(); busy = false; }
+    setTimeout(() => {
+      document.getElementById('flvNo').textContent = 'No. ' + pad(i + 1);
+      document.getElementById('flvTag').textContent = f.tag;
+      document.getElementById('flvNote').textContent = f.note;
+    }, motion ? 600 : 0);
+    current = i;
+  }
+  const giantChars = () => { if (!giantWord.querySelector('.c')) delete giantWord.dataset.done; return split(giantWord); };
+  document.getElementById('prev').onclick = e => setFlavor((current + FLAVORS.length - 1) % FLAVORS.length, coneEl);
+  document.getElementById('next').onclick = e => setFlavor((current + 1) % FLAVORS.length, coneEl);
+  addEventListener('keydown', e => {
+    if (hero.getBoundingClientRect().bottom < 100) return;
+    if (e.key === 'ArrowRight') setFlavor((current + 1) % FLAVORS.length, coneEl);
+    if (e.key === 'ArrowLeft') setFlavor((current + FLAVORS.length - 1) % FLAVORS.length, coneEl);
+  });
+
+  /* ═════════ marquees (speed follows scroll velocity) ═════════ */
+  const fill = (el, words) => { const s = words.map(w => `<span>${w}</span>`).join(''); el.innerHTML = s + s + s + s; };
+  fill(document.getElementById('mqA'), ['Strawberry', 'Blueberry', 'Pistachio', 'Mango', 'Cocoa']);
+  fill(document.getElementById('mqB'), ['churned slow', 'scooped loud', 'baked at dawn', 'gone by ten']);
+  const mqs = [{ el: document.getElementById('mqA'), x: 0, dir: -1 }, { el: document.getElementById('mqB'), x: -25, dir: 1 }];
+  gsap.ticker.add(() => {
+    if (!motion) return;
+    const v = lenis ? Math.min(40, Math.abs(lenis.velocity)) : 0;
+    mqs.forEach(m => { m.x += m.dir * (.035 + v * .02); if (m.x < -50) m.x += 25; if (m.x > 0) m.x -= 25; m.el.style.transform = `translate3d(${m.x}%,0,0)`; });
+  });
+
+  /* ═════════ scrubbed frame sequences ═════════ */
+  // edge colours of a frame (for the portrait band fill), sampled once per flavor
+  const probe = document.createElement('canvas'); probe.width = probe.height = 8;
+  const px = probe.getContext('2d', { willReadFrequently: true });
+  const hex = d => '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+  function edgesOf(img) { px.drawImage(img, 0, 0, 8, 8); return [hex(px.getImageData(4, 0, 1, 1).data), hex(px.getImageData(4, 7, 1, 1).data)]; }
+
+  // one scrubbed sequence per section, with a frame set per flavor
+  function Seq(kind, canvas) {
+    const N = 470, ctx = canvas.getContext('2d');      // 96 fps motion-interpolated frames
+    const dirOf = k => k === 0 ? kind : `flv/${FLAVORS[k].name.toLowerCase()}/${kind}`;
+    const sets = FLAVORS.map(() => new Array(N)), edges = FLAVORS.map(() => ['#f6d6d5', '#efcdcd']), jobs = [];
+    let cur = 0, frames = sets[0], edge = edges[0];
+    let W = 0, H = 0, last = -1, lastP = 0;
+    const url = (k, i) => `assets/${dirOf(k)}/f_${String(i + 1).padStart(3, '0')}.webp?v=3`;
+    const size = () => { const d = Math.min(devicePixelRatio || 1, 2); W = canvas.clientWidth; H = canvas.clientHeight; canvas.width = W * d; canvas.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); last = -1; };
+    const near = i => { if (frames[i]) return i; for (let d = 1; d < N; d++) { if (i - d >= 0 && frames[i - d]) return i - d; if (i + d < N && frames[i + d]) return i + d; } return -1; };
+    const geo = img => {
+      const portrait = W / H < .8, iw = img.naturalWidth, ih = img.naturalHeight;
+      const s = portrait ? Math.max(W / iw, H * .58 / ih) : Math.max(W / iw, H / ih);
+      const dw = iw * s, dh = ih * s;
+      return { portrait, dw, dh, dx: (W - dw) / 2, dy: (H - dh) / 2 };
+    };
+    const draw = p => {
+      lastP = p;
+      // dense real frames: show the nearest one (no cross-blending, which ghosts fast motion)
+      const a = near(Math.round(Math.max(0, Math.min(1, p)) * (N - 1)));
+      if (a < 0 || a === last) return; last = a;
+      const img = frames[a], g = geo(img);
+      ctx.clearRect(0, 0, W, H);
+      if (g.portrait && g.dy > 0) { ctx.fillStyle = edge[0]; ctx.fillRect(0, 0, W, g.dy + 1); ctx.fillStyle = edge[1]; ctx.fillRect(0, g.dy + g.dh - 1, W, H); }
+      ctx.drawImage(img, g.dx, g.dy, g.dw, g.dh);
+      if (g.portrait && g.dy > 0) {
+        const fh = Math.min(70, g.dh * .18), dy = g.dy, dh = g.dh;
+        let gr = ctx.createLinearGradient(0, dy, 0, dy + fh); gr.addColorStop(0, edge[0]); gr.addColorStop(1, edge[0] + '00'); ctx.fillStyle = gr; ctx.fillRect(0, dy, W, fh);
+        gr = ctx.createLinearGradient(0, dy + dh - fh, 0, dy + dh); gr.addColorStop(0, edge[1] + '00'); gr.addColorStop(1, edge[1]); ctx.fillStyle = gr; ctx.fillRect(0, dy + dh - fh, W, fh);
+      }
+    };
+    const loadFrame = async (k, i) => {
+      const im = await loadImg(url(k, i)); sets[k][i] = im;
+      if (i === 0 && im) edges[k] = edgesOf(im);
+      if (k === cur) { last = -1; if (i === 0) edge = edges[k]; draw(lastP); }
+    };
+    const load = (k = cur) => {
+      if (jobs[k]) return jobs[k];
+      const seen = new Uint8Array(N), order = [];
+      for (let st = 32; st >= (phone ? 2 : 1); st >>= 1) for (let i = 0; i < N; i += st) if (!seen[i]) { seen[i] = 1; order.push(i); }
+      return jobs[k] = (async () => { for (let j = 0; j < order.length; j += 8) await Promise.all(order.slice(j, j + 8).filter(i => !sets[k][i]).map(i => loadFrame(k, i))); })();
+    };
+    const setFlavor = k => { cur = k; frames = sets[k]; edge = edges[k]; last = -1; load(k); draw(lastP); };
+    size();
+    return { draw, size, load, setFlavor, first: () => loadFrame(0, 0) };
+  }
+  const seqBuild = Seq('build', document.getElementById('cvBuild'));
+  const seqBurst = Seq('burst', document.getElementById('cvBurst'));
+  addEventListener('resize', () => { seqBuild.size(); seqBurst.size(); fitGiant(); ScrollTrigger.refresh(); });
+
+  /* ═════════ scroll choreography ═════════ */
+  function buildScroll() {
+    const mm = gsap.matchMedia();
+    // BUILD: frames + three typographic beats
+    const bstate = { p: 0 };
+    const beats = [...document.querySelectorAll('#build [data-beat]')].map(el => split(el));
+    const btl = gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { trigger: '#build', start: 'top top', end: '+=260%', pin: true, scrub: .8,
+      onUpdate: st => { document.getElementById('stepN').textContent = pad(Math.min(3, 1 + Math.floor(st.progress * 3))); } } });
+    btl.to(bstate, { p: 1, duration: 10, onUpdate: () => seqBuild.draw(bstate.p) }, 0)
+       .fromTo('#stepLine', { scaleX: 0 }, { scaleX: 1, duration: 10 }, 0);
+    const slots = [[0, 2.6], [3.4, 6.2], [6.8, 10]];
+    beats.forEach((chars, k) => {
+      const [a, b] = slots[k];
+      gsap.set(chars, { yPercent: 110 });
+      btl.to(chars, { yPercent: 0, rotate: 0, stagger: .04, duration: .6, ease: 'expo.out' }, k === 0 ? 0 : a);
+      if (k < 2) btl.to(chars, { yPercent: -110, stagger: .02, duration: .5, ease: 'power2.in' }, b - .6);
+    });
+    seqBuild.draw(0);
+
+    // INSIDE: frames + title + hotspots + card shrink on exit
+    const istate = { p: 0 };
+    const ititle = split(document.querySelector('.burst-title'));
+    gsap.set(ititle, { yPercent: 110 });
+    const itl = gsap.timeline({ defaults: { ease: 'none' }, scrollTrigger: { trigger: '#inside', start: 'top top', end: '+=240%', pin: true, scrub: .8 } });
+    itl.to(istate, { p: 1, duration: 8, onUpdate: () => seqBurst.draw(istate.p) }, 0)
+       .to(ititle, { yPercent: 0, stagger: .05, duration: .8, ease: 'expo.out' }, .4)
+       .to('#inside .hot', { opacity: 1, scale: 1, stagger: .5, duration: .6, ease: 'back.out(2)' }, 4.2)
+       .fromTo('#burstFrame', { clipPath: 'inset(0% 0% 0% 0% round 0px)' }, { clipPath: 'inset(5% 4% 5% 4% round 40px)', duration: 1.4, ease: 'power2.inOut' }, 8.2)
+       .to('#inside .hot, .burst-title', { opacity: 0, duration: .8 }, 8.4);
+    gsap.set('#inside .hot', { scale: .6 });
+    seqBurst.draw(0);
+
+    // heading reveals elsewhere
+    document.querySelectorAll('[data-reveal]').forEach(el => {
+      const targets = el.hasAttribute('data-split') ? split(el) : [el];
+      gsap.from(targets, { yPercent: el.hasAttribute('data-split') ? 110 : 0, y: el.hasAttribute('data-split') ? 0 : 40, opacity: el.hasAttribute('data-split') ? 1 : 0, rotate: el.hasAttribute('data-split') ? 6 : 0,
+        duration: 1.1, stagger: .03, ease: 'expo.out', scrollTrigger: { trigger: el, start: 'top 85%' } });
+    });
+    gsap.from('.menu li', { y: 50, opacity: 0, duration: 1, stagger: .08, ease: 'expo.out', scrollTrigger: { trigger: '.menu', start: 'top 85%' } });
+    const wm = split(document.querySelector('.wordmark'));
+    gsap.from(wm, { yPercent: 100, duration: 1.2, stagger: .04, ease: 'expo.out', scrollTrigger: { trigger: 'footer', start: 'top bottom' } });
+    if (fine && motion) wm.forEach(c => {
+      c.addEventListener('pointerenter', () => gsap.to(c, { yPercent: -12, rotate: -6, duration: .5, ease: 'back.out(3)', overwrite: 'auto' }));
+      c.addEventListener('pointerleave', () => gsap.to(c, { yPercent: 0, rotate: 0, duration: .6, ease: 'elastic.out(1, .4)', overwrite: 'auto' }));
+    });
+
+    // hero drifts away as you leave it
+    gsap.to('.cone', { yPercent: 14, scale: .92, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+    gsap.to('.giant', { yPercent: -30, ease: 'none', scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true } });
+    gsap.from('.visit .vc', { yPercent: 20, rotate: -8, ease: 'none', scrollTrigger: { trigger: '.visit', start: 'top bottom', end: 'center center', scrub: true } });
+  }
+
+  /* ═════════ menu + hover preview ═════════ */
+  const menu = document.getElementById('menu'), preview = document.getElementById('preview');
+  FLAVORS.forEach((f, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<button class="row" style="--rc:${f.accent};--rb:${f.bg}" data-cursor="Try it">
+      <span class="num">${pad(i + 1)}</span>
+      <span class="mthumb" aria-hidden="true"><img src="assets/${f.dir}/c_060.webp?v=5" alt="" loading="lazy"></span>
+      <span class="name">${f.name}</span><span class="notes">${f.notes}</span><span class="price">$${f.price}<i aria-hidden="true">↗</i></span></button>`;
+    const row = li.firstElementChild;
+    row.setAttribute('aria-label', `${f.name}, $${f.price}. Show on the cone`);
+    row.addEventListener('click', () => { lenis ? lenis.scrollTo(0, { duration: 1.6, onComplete: () => setFlavor(i, coneEl) }) : (scrollTo(0, 0), setFlavor(i, coneEl)); });
+    row.addEventListener('pointerenter', () => { preview.style.setProperty('--pb', f.bg); document.getElementById('previewImg').src = `assets/${f.dir}/c_044.webp?v=5`; });
+    menu.append(li);
+  });
+  if (fine && motion) {
+    const px = gsap.quickTo(preview, 'x', { duration: .6, ease: 'power3' }), py = gsap.quickTo(preview, 'y', { duration: .6, ease: 'power3' });
+    let lastX = 0;
+    addEventListener('pointermove', e => { px(e.clientX + 30); py(e.clientY - 160); gsap.to(preview, { rotate: gsap.utils.clamp(-14, 14, (e.clientX - lastX) * .6), duration: .5 }); lastX = e.clientX; });
+    menu.addEventListener('pointerenter', () => gsap.to(preview, { scale: 1, opacity: 1, duration: .5, ease: 'expo.out' }));
+    menu.addEventListener('pointerleave', () => gsap.to(preview, { scale: 0, opacity: 0, duration: .4, ease: 'power3.in' }));
+  }
+
+  /* ═════════ cursor + magnetic ═════════ */
+  if (fine && motion) {
+    const cur = document.getElementById('cursor'), txt = document.getElementById('cursorTxt');
+    const cx = gsap.quickTo(cur, 'x', { duration: .18, ease: 'power3' }), cy = gsap.quickTo(cur, 'y', { duration: .18, ease: 'power3' });
+    addEventListener('pointermove', e => { cx(e.clientX); cy(e.clientY); });
+    document.addEventListener('pointerover', e => {
+      const lab = e.target.closest('[data-cursor]'), link = e.target.closest('a, button');
+      cur.classList.toggle('label', !!lab && !link?.classList.contains('btn'));
+      cur.classList.toggle('link', !lab && !!link);
+      if (lab) txt.textContent = lab.dataset.cursor;
+    });
+    document.querySelectorAll('.magnetic').forEach(el => {
+      const xTo = gsap.quickTo(el, 'x', { duration: .8, ease: 'elastic.out(1, .4)' }), yTo = gsap.quickTo(el, 'y', { duration: .8, ease: 'elastic.out(1, .4)' });
+      el.addEventListener('pointermove', e => { const r = el.getBoundingClientRect(); xTo((e.clientX - r.left - r.width / 2) * .35); yTo((e.clientY - r.top - r.height / 2) * .35); });
+      el.addEventListener('pointerleave', () => { xTo(0); yTo(0); });
+    });
+  }
+
+  /* ═════════ boot: preload → intro ═════════ */
+  split(document.querySelector('.loader .display'));
+  fitGiant();
+  const countEl = document.getElementById('count'), barEl = document.getElementById('bar');
+  const shown = { v: 0 };
+  let done = 0; const total = N_CONE + 2;
+  const tick = () => { done++; gsap.to(shown, { v: done / total * 100, duration: .4, ease: 'power2.out', overwrite: true, onUpdate: () => { countEl.textContent = String(Math.round(shown.v)).padStart(3, '0'); barEl.style.transform = `scaleX(${shown.v / 100})`; } }); };
+  if (motion) gsap.from('.loader .c', { yPercent: 110, duration: 1, stagger: .05, ease: 'expo.out', delay: .1 });
+
+  async function preload() {
+    await loadSet(0, tick);
+    await Promise.all([seqBuild.first().then(tick), seqBurst.first().then(tick)]);
+  }
+  const minTime = new Promise(r => setTimeout(r, motion ? 1400 : 0));
+  Promise.all([preload(), minTime, document.fonts.ready]).then(() => {
+    buildScroll();
+    seqBuild.load(); seqBurst.load();
+    (async () => { for (let k = 1; k < FLAVORS.length; k++) await loadSet(k); })();
+    intro();
+  });
+
+  function intro() {
+    const gc = giantChars();
+    if (!motion) { document.getElementById('loader').remove(); root.classList.remove('loading'); return; }
+    const tl = gsap.timeline({ onComplete: () => { lenis && lenis.start(); document.getElementById('loader').remove(); } });
+    gsap.set(gc, { yPercent: 115, rotate: 10 });
+    gsap.set('.cone', { yPercent: 40, scale: .8, opacity: 0 });
+    gsap.set('.bit', { scale: 0 });
+    gsap.set('.blob', { scale: 0 });
+    gsap.set(['.hero-copy > *', '.picker', '.hero-top', '.kicker', '.nav > *'], { y: 30, opacity: 0 });
+    tl.to('.loader .count, .loader .row > *, .loader .mark p', { opacity: 0, duration: .3 }, 0)
+      .to('.loader .c', { yPercent: -110, stagger: .025, duration: .5, ease: 'power3.in' }, 0)
+      .to('#loader', { clipPath: 'inset(0 0 100% 0 round 0 0 50% 50%)', duration: 1.1, ease: 'expo.inOut' }, .35)
+      .to('.blob', { scale: 1, duration: 1.6, ease: 'elastic.out(1, .6)' }, .8)
+      .to(gc, { yPercent: 0, rotate: 0, duration: 1.2, stagger: .045, ease: 'expo.out' }, .85)
+      .to('.cone', { yPercent: 0, scale: 1, opacity: 1, duration: 1.6, ease: 'expo.out' }, 1)
+      .to(turn, { spin: (N_CONE - 1) * 2, duration: 2.2, ease: 'expo.out' }, 1)
+      .to('.bit', { scale: 1, duration: 1.4, stagger: .07, ease: 'elastic.out(1, .55)' }, 1.3)
+      .to(['.nav > *', '.hero-top', '.kicker', '.hero-copy > *', '.picker'], { y: 0, opacity: 1, duration: 1, stagger: .06, ease: 'expo.out' }, 1.4);
+    gsap.set('#loader', { clipPath: 'inset(0 0 0% 0 round 0 0 0% 0%)' });
+  }
+})();
+</script>
+</body>
+</html>
