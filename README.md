@@ -2,6 +2,8 @@
 
 A playful, motion-heavy landing page for a fictional small-batch gelato shop. A real, photographic ice cream cone turns slowly in front of giant type. Pick one of five flavors and the whole page re-themes with a circle wipe: background, colors, the cone itself, the floating ingredients around it, and both scroll-driven video stories below. The page is a single HTML file with no build step.
 
+**Live demo:** <https://still-hall-2565.dnanima895.workers.dev/>
+
 ![Flavor switcher demo](media/demo-flavors-v2.gif)
 
 ![Scroll story, menu and signed footer](media/demo-scroll-v2.gif)

@@ -587,7 +587,7 @@
     if (setJobs[k]) return setJobs[k];
     const order = []; for (let st = 16; st >= 1; st >>= 1) for (let i = 0; i < N_CONE; i += st) if (!order.includes(i)) order.push(i);
     return setJobs[k] = (async () => {
-      for (let j = 0; j < order.length; j += 8) await Promise.all(order.slice(j, j + 8).map(i => loadImg(frameUrl(FLAVORS[k].dir, i)).then(im => { SETS[k][i] = im; if (SETS[k] === coneFrames) lastDrawn = -1; onEach && onEach(); })));
+      for (let j = 0; j < order.length; j += 8) await Promise.all(order.slice(j, j + 8).filter(i => !SETS[k][i]).map(i => loadImg(frameUrl(FLAVORS[k].dir, i)).then(im => { SETS[k][i] = im; if (SETS[k] === coneFrames) lastDrawn = -1; onEach && onEach(); })));
     })();
   }
   const fn = (dir, p, i) => `assets/${dir}/${p}_${String(i + 1).padStart(3, "0")}.webp?v=5`;
@@ -883,18 +883,20 @@
   fitGiant();
   const countEl = document.getElementById('count'), barEl = document.getElementById('bar');
   const shown = { v: 0 };
-  let done = 0; const total = N_CONE + 2;
+  let done = 0; const total = Math.ceil(N_CONE / 8) + 2;
   const tick = () => { done++; gsap.to(shown, { v: done / total * 100, duration: .4, ease: 'power2.out', overwrite: true, onUpdate: () => { countEl.textContent = String(Math.round(shown.v)).padStart(3, '0'); barEl.style.transform = `scaleX(${shown.v / 100})`; } }); };
   if (motion) gsap.from('.loader .c', { yPercent: 110, duration: 1, stagger: .05, ease: 'expo.out', delay: .1 });
 
+  // only every 8th strawberry frame gates the intro (15 images); the rest streams in afterwards
+  const COARSE = Array.from({ length: Math.ceil(N_CONE / 8) }, (_, j) => j * 8);
   async function preload() {
-    await loadSet(0, tick);
+    await Promise.all(COARSE.map(i => loadImg(frameUrl(FLAVORS[0].dir, i)).then(im => { SETS[0][i] = im; lastDrawn = -1; tick(); })));
     await Promise.all([seqBuild.first().then(tick), seqBurst.first().then(tick)]);
   }
   const minTime = new Promise(r => setTimeout(r, motion ? 1400 : 0));
   Promise.all([preload(), minTime, document.fonts.ready]).then(() => {
     buildScroll();
-    seqBuild.load(); seqBurst.load();
+    loadSet(0); seqBuild.load(); seqBurst.load();
     (async () => { for (let k = 1; k < FLAVORS.length; k++) await loadSet(k); })();
     intro();
   });
