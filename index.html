@@ -268,6 +268,15 @@
   .wordmark .c:hover { color: var(--accent); }
   .foot { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-top: 28px; padding-top: 20px; border-top: 1.5px solid rgba(0,0,0,.1); font-size: 14px; }
   .foot nav { display: flex; gap: 22px; }
+  .foot { align-items: center; }
+  .foot a.sig { display: flex; align-items: center; gap: 14px; opacity: 1; }
+  .sig span { font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; opacity: .55; }
+  .sig i {
+    display: block; width: 170px; aspect-ratio: 1400 / 417; background: var(--ink);
+    -webkit-mask: url(assets/signature.png) center / contain no-repeat; mask: url(assets/signature.png) center / contain no-repeat;
+    transition: background-color .4s;
+  }
+  .foot a.sig:hover i { background: var(--accent); }
   .foot a { text-decoration: none; opacity: .7; }
   .foot a:hover { opacity: 1; color: var(--accent); }
 
@@ -328,6 +337,7 @@
     .visit h2 { font-size: 60px; }
     .info { grid-template-columns: 1fr; gap: 16px; }
     .mq span { gap: 28px; padding: 0 14px; }
+    .foot { flex-direction: column; align-items: flex-start; gap: 14px; }
   }
   @media (max-height: 640px) and (min-width: 901px) {
     .hero-copy p { display: none; }
@@ -479,6 +489,7 @@
   <p class="wordmark display" data-split aria-hidden="true">Scoopberry</p>
   <div class="foot">
     <span>© 2026 Scoopberry Gelato Co.</span>
+    <a class="sig" href="https://github.com/DexAi3000" target="_blank" rel="noopener" aria-label="Designed and built by Nima Ariyan Far"><span>Designed &amp; built by</span><i aria-hidden="true"></i></a>
     <nav aria-label="Footer"><a href="#flavors" data-link>Flavors</a><a href="#visit" data-link>Visit</a><a href="#top" data-link>Instagram</a><a href="#top" data-link>Back to top ↑</a></nav>
   </div>
 </footer>
@@ -812,6 +823,8 @@
     gsap.from('.menu li', { y: 50, opacity: 0, duration: 1, stagger: .08, ease: 'expo.out', scrollTrigger: { trigger: '.menu', start: 'top 85%' } });
     const wm = split(document.querySelector('.wordmark'));
     gsap.from(wm, { yPercent: 100, duration: 1.2, stagger: .04, ease: 'expo.out', scrollTrigger: { trigger: 'footer', start: 'top bottom' } });
+    // signature "signs" itself left to right when the footer arrives
+    if (motion) gsap.fromTo('.sig i', { clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0% 0 0)', duration: 2, ease: 'power2.inOut', delay: .3, scrollTrigger: { trigger: 'footer', start: 'top bottom' } });
     if (fine && motion) wm.forEach(c => {
       c.addEventListener('pointerenter', () => gsap.to(c, { yPercent: -12, rotate: -6, duration: .5, ease: 'back.out(3)', overwrite: 'auto' }));
       c.addEventListener('pointerleave', () => gsap.to(c, { yPercent: 0, rotate: 0, duration: .6, ease: 'elastic.out(1, .4)', overwrite: 'auto' }));
@@ -843,6 +856,8 @@
     addEventListener('pointermove', e => { px(e.clientX + 30); py(e.clientY - 160); gsap.to(preview, { rotate: gsap.utils.clamp(-14, 14, (e.clientX - lastX) * .6), duration: .5 }); lastX = e.clientX; });
     menu.addEventListener('pointerenter', () => gsap.to(preview, { scale: 1, opacity: 1, duration: .5, ease: 'expo.out' }));
     menu.addEventListener('pointerleave', () => gsap.to(preview, { scale: 0, opacity: 0, duration: .4, ease: 'power3.in' }));
+    // scrolling can move the menu out from under a still cursor without a pointerleave
+    addEventListener('scroll', () => { if (!menu.matches(':hover') && gsap.getProperty(preview, 'opacity') > 0) gsap.to(preview, { scale: 0, opacity: 0, duration: .3, overwrite: true }); }, { passive: true });
   }
 
   /* ═════════ cursor + magnetic ═════════ */
